@@ -18,7 +18,9 @@ ISO_DIR         := iso
 CFLAGS          := -std=gnu99 -m32 -ffreestanding -O2 -Wall -Wextra -fno-stack-protector \
                     -I$(INC_DIR) -I$(SRC_DIR)
 ASFLAGS         := -f elf32
-LDFLAGS         := -m elf_i386 -Ttext 0x1000
+
+# Use custom linker script (linker.ld)
+LDFLAGS         := -m elf_i386 -T linker.ld
 
 # ─── Sources ───────────────────────────────────────────────────────────────────
 C_SRCS := \
@@ -27,6 +29,7 @@ C_SRCS := \
   $(SRC_DIR)/idt.c \
   $(SRC_DIR)/kernel.c \
   $(SRC_DIR)/paging.c \
+  $(SRC_DIR)/pmm.c      \
   $(SRC_DIR)/ports.c \
   $(SRC_DIR)/pic.c
 
@@ -73,9 +76,9 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.asm
 	@mkdir -p $(BUILD_DIR)
 	$(ASM) $(ASFLAGS) $< -o $@
 
-# Link into an ELF
-$(KERNEL_ELF): $(OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^
+# Link into an ELF (use only OBJS; linker.ld is pulled in via -T)
+$(KERNEL_ELF): $(OBJS) linker.ld
+	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
 # Make a raw binary out of the ELF
 $(KERNEL_BIN): $(KERNEL_ELF)
