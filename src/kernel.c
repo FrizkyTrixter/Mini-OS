@@ -9,8 +9,9 @@
 #include "pic.h"
 #include "io.h"
 #include "paging.h"    /* ← NEW: paging API */
-#include "pmm.h"       /* ← NEW: physical page allocator API */
-#include "console.h"   /* ← Our new scrollable console driver */
+#include "pmm.h"
+#include "console.h"
+#include "heap.h"/* ← Our new scrollable console driver */
 
 /* Minimal strcmp (freestanding) */
 static int strcmp(const char *a, const char *b) {
@@ -311,12 +312,27 @@ void irq_handler_common(uint32_t irq, uint32_t err_code) {
 void kmain(void) {
     gdt_init();
 
-    init_paging();    /* ← NEW: enable 4KiB paging (identity-map 0–4MiB) */
+    init_paging();
+    heap_init();/* ← NEW: enable 4KiB paging (identity-map 0–4MiB) */
     clear_screen();
     test_cr0_paging();
     test_cr3();
     print("Hello world!\n");
     print("Welcome to your tiny OS!\n");
+    print("=== HEAP TEST ===\n");
+    heap_dump_stats();
+
+    // carve out 64 bytes
+    void *p = kmalloc(64, 8);
+    if (p) {
+        *(uint32_t*)p = 0xDEADBEEF;
+        print("Allocated @ 0x"); print_hex((uint32_t)p);
+        print(" -> wrote 0x");    print_hex(*(uint32_t*)p);
+        print("\n");
+    }
+
+    heap_dump_stats();
+    print("=== END TEST ===\n");
 
     /* Remap PIC: IRQ0–IRQ7 → 0x20–0x27, IRQ8–IRQ15 → 0x28–0x2F */
     pic_remap(0x20, 0x28);

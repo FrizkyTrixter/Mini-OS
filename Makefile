@@ -31,7 +31,8 @@ C_SRCS := \
   $(SRC_DIR)/paging.c \
   $(SRC_DIR)/pmm.c      \
   $(SRC_DIR)/ports.c \
-  $(SRC_DIR)/pic.c
+  $(SRC_DIR)/pic.c \
+  $(SRC_DIR)/heap.c 
 
 # assemble both NASM‐style and GNU‐asm style
 ASM_SRCS_S      := $(wildcard $(SRC_DIR)/*.s)

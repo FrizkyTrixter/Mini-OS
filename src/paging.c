@@ -40,3 +40,25 @@ void init_paging(void) {
     asm volatile("mov %0, %%cr0" :: "r"(cr0));
 }
 
+#include "pmm.h"
+#include <string.h>    // for memset
+
+void map_page(uint32_t va, uint32_t pa, uint32_t flags) {
+    extern uint32_t page_directory[];
+    uint32_t pd_idx = va >> 22;
+    uint32_t pt_idx = (va >> 12) & 0x3FF;
+    uint32_t *pt;
+
+    /* install 2nd-level page table if missing */
+    if (!(page_directory[pd_idx] & PAGE_PRESENT)) {
+        uint32_t new_pt_pa = pmm_alloc_page();
+        pt = (uint32_t*)(new_pt_pa);
+        memset(pt, 0, 4096);
+        page_directory[pd_idx] = new_pt_pa | PAGE_PRESENT | PAGE_RW;
+    } else {
+        pt = (uint32_t*)(page_directory[pd_idx] & 0xFFFFF000);
+    }
+    /* map the frame */
+    pt[pt_idx] = (pa & 0xFFFFF000) | flags;
+}
+
