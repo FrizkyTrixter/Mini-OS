@@ -1,0 +1,32 @@
+#include "heap.h"
+
+static uintptr_t HEAP_START = 0;
+static uintptr_t HEAP_END   = 0;
+static uintptr_t HEAP_CURR  = 0;
+
+static inline uintptr_t align16(uintptr_t x) { return (x + 15u) & ~((uintptr_t)15u); }
+
+void heap_init(uintptr_t start, uintptr_t bytes) {
+    HEAP_START = align16(start);
+    HEAP_END   = HEAP_START + bytes;
+    HEAP_CURR  = HEAP_START;
+}
+
+void* kmalloc(size_t size) {
+    if (size == 0) return 0;
+    uintptr_t p = align16(HEAP_CURR);
+    uintptr_t n = align16((uintptr_t)size);
+    if (p + n > HEAP_END) return 0; // out of memory
+    HEAP_CURR = p + n;
+    return (void*)p;
+}
+
+void* kcalloc(size_t n, size_t size) {
+    size_t total = n * size;
+    unsigned char* p = (unsigned char*)kmalloc(total);
+    if (!p) return 0;
+    for (size_t i = 0; i < total; ++i) p[i] = 0;
+    return p;
+}
+
+void kfree(void* ptr) { (void)ptr; /* no-op in bump allocator */ }

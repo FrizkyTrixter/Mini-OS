@@ -2,28 +2,58 @@ ENTRY(_start)
 
 SECTIONS
 {
-    /* Start loading the kernel at physical address 1 MiB */
+    /* Load the kernel starting at physical address 1 MiB */
     . = 1M;
 
-    /* Multiboot header section */
-    .multiboot : { *(.multiboot*) }
+    /* --- Multiboot header --- */
+    .multiboot ALIGN(4K) :
+    {
+        KEEP(*(.multiboot))
+        KEEP(*(.multiboot_header))
+    }
 
-    /* Code and read-only data */
-    .text      ALIGN(4K) : { *(.text*) }
-    .rodata    ALIGN(4K) : { *(.rodata*) }
+    /* --- Code and read-only data --- */
+    .text ALIGN(4K) :
+    {
+        *(.text*)
+    }
 
-    /* Initialized data */
-    .data      ALIGN(4K) : { *(.data*) }
+    .rodata ALIGN(4K) :
+    {
+        *(.rodata*)
+    }
 
-    /* Uninitialized data (BSS) */
-    .bss       ALIGN(4K) : { *(.bss*) *(COMMON) }
+    /* --- Initialized data --- */
+    .data ALIGN(4K) :
+    {
+        *(.data*)
+    }
 
-    /* End-of-kernel symbol: first byte just past .bss */
+    /* --- Uninitialized data (BSS) --- */
+    .bss ALIGN(4K) :
+    {
+        *(.bss*)
+        *(COMMON)
+    }
+
+    /* Mark end of kernel image */
     _kernel_end = .;
+    PROVIDE(kernel_end = .);
 
-    /*
-     * Place the heap *after* _kernel_end so it does *not* count
-     * as part of the “kernel” for pmm_init.
-     */
-    .heap      ALIGN(4K) : { *(.heap*) }
+    /* --- Optional heap region (reserved space after kernel) --- */
+    .heap ALIGN(4K) :
+    {
+        *(.heap*)
+    }
+
+    /* Provide symbols for C code to locate heap start/end */
+    PROVIDE(end = .);
+    PROVIDE(_end = .);
+
+    /* --- Debugging / symbol table --- */
+    /DISCARD/ :
+    {
+        *(.comment)
+        *(.note*)
+    }
 }

@@ -8,10 +8,10 @@
 #include "idt.h"
 #include "pic.h"
 #include "io.h"
-#include "paging.h"    /* ← NEW: paging API */
+#include "paging.h"
 #include "pmm.h"
 #include "console.h"
-#include "heap.h"      /* ← Our new scrollable console driver */
+#include "heap.h"
 
 /* Minimal strcmp (freestanding) */
 static int strcmp(const char *a, const char *b) {
@@ -81,6 +81,7 @@ static void test_cr0_paging(void) {
         ? ">> CR0.PG = 1 (paging is ON)\n"
         : ">> CR0.PG = 0 (paging is OFF)\n");
 }
+
 static void test_cr3(void) {
     uint32_t cr3;
     asm volatile("mov %%cr3, %0" : "=r"(cr3));
@@ -216,15 +217,18 @@ void irq_handler_common(uint32_t irq, uint32_t err_code) {
 void kmain(void) {
     gdt_init();
     init_paging();
+
+    /* Initialize heap using your existing no-arg API */
     heap_init();
+
     clear_screen();
     test_cr0_paging();
     test_cr3();
     print("Hello world!\n");
     print("Welcome to your tiny OS!\n");
     print("=== HEAP TEST ===\n");
-    heap_dump_stats();
 
+    /* Simple heap test that matches your kmalloc(size, align) signature */
     void *p = kmalloc(64, 8);
     if (p) {
         *(uint32_t*)p = 0xDEADBEEF;
@@ -233,12 +237,17 @@ void kmain(void) {
         print(" -> wrote 0x");
         print_hex(*(uint32_t*)p);
         print("\n");
+    } else {
+        print("kmalloc failed!\n");
     }
-    heap_dump_stats();
+
     print("=== END TEST ===\n");
+
+    /* Initialize PIC and IDT */
     pic_remap(0x20, 0x28);
     outb(PIC1_DATA, 0xFC);  /* unmask timer+keyboard */
     outb(PIC2_DATA, 0xFF);
+
     set_idt_gate(32, (uint32_t)irq0);
     set_idt_gate(33, (uint32_t)irq1);
     set_idt_gate(34, (uint32_t)irq2);
