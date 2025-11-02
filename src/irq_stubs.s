@@ -1,9 +1,15 @@
 ; File: src/irq_stubs.s
+; IRQ stubs for IRQ0–IRQ15
+; Each stub pushes a dummy error code and IRQ number,
+; then calls irq_handler_common() in C.
 
+[BITS 32]
+
+section .text
     ; Declare the common C handler
     extern irq_handler_common
 
-section .text
+    ; Export all IRQ symbols for the linker
     global irq0
     global irq1
     global irq2
@@ -21,18 +27,21 @@ section .text
     global irq14
     global irq15
 
+; ─── Macro to generate one IRQ handler ─────────────────────────────────────────
 %macro IRQ_HANDLER 1
 irq%1:
-    cli                     ; disable interrupts
-    push dword 0            ; dummy error code
-    push dword %1           ; IRQ number
-    call irq_handler_common ; call into C
-    add esp, 8              ; clean up two dwords
+    cli                     ; disable interrupts (prevent nesting)
+    pusha                   ; save registers
+    push dword 0            ; dummy error code (for consistent stack layout)
+    push dword %1           ; IRQ number (0–15)
+    call irq_handler_common ; call the shared C handler
+    add esp, 8              ; clean up (2× dword)
+    popa                    ; restore registers
     sti                     ; re-enable interrupts
-    iret                    ; return from CPU
+    iretd                   ; return from interrupt
 %endmacro
 
-; Instantiate handlers for IRQ0–IRQ15
+; ─── Instantiate handlers for IRQ0–IRQ15 ──────────────────────────────────────
 IRQ_HANDLER 0
 IRQ_HANDLER 1
 IRQ_HANDLER 2
@@ -49,4 +58,3 @@ IRQ_HANDLER 12
 IRQ_HANDLER 13
 IRQ_HANDLER 14
 IRQ_HANDLER 15
-

@@ -20,9 +20,14 @@ void print(const char *s);
 
 /*
  * Prints exactly eight hexadecimal digits corresponding to 'value'.
- * For example, print_hex(0x123) prints "00000123". Internally this may call print().
+ * For example, print_hex(0x123) prints "00000123".
  */
 void print_hex(uint32_t value);
+
+/*
+ * Prints an unsigned 32-bit integer in decimal (no sign).
+ */
+void print_dec(uint32_t value);
 
 /*
  * Returns the current linear cursor position [0 .. 80*25−1].

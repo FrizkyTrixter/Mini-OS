@@ -4,9 +4,7 @@
 //   A scrollable VGA console driver for 80×25 text mode. Whenever you write
 //   past row 24, the entire screen scrolls up one line and the cursor lands
 //   at row 24, column 0.  Also provides helpers to draw an individual character
-//   at (row,col), print eight hex digits, and query the current cursor_pos.
-//
-//   Compile with: gcc -m32 -ffreestanding -O2 -c console.c -o console.o
+//   at (row,col), print eight hex digits, print decimal, and query cursor_pos.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <stdint.h>
@@ -87,7 +85,7 @@ void clear_screen(void) {
  *     - Otherwise: VGA[cursor_pos] = (c,0x0F); cursor_pos++
  *   Then call scroll_if_needed() to guarantee no wrap-around.
  */
-void print_char(char c) {
+static void print_char(char c) {
     switch (c) {
         case '\n':
             // Move to first column of the next row:
@@ -107,21 +105,13 @@ void print_char(char c) {
 /*
  * print(const char *s)
  *
- *   Walk through each character in the null-terminated string `s`:
- *     - '\n': move to first column of next row
- *     - '\r': move to first column of this row
- *     - else: write and advance cursor_pos
- *   After each, call scroll_if_needed().
- *
- *   If you call print("Hello"), and you are currently in the middle of row 10,
- *   it will not implicitly force a blank line first—if you want “Hello” to start
- *   on a new line, either ensure the string begins with '\n', or track the cursor
- *   via get_cursor_pos() and do `\n` yourself. In our kernel.c, we rely on print()
- *   always forcing a newline if not at col 0, so implement that here:
+ *   Walk through each character in the null-terminated string `s` and write it.
+ *   This version forces a newline first if the cursor isn't at column 0 and
+ *   the string does not begin with '\n'.
  */
 void print(const char *s) {
     // If cursor is not at column 0 and the string does not start with '\n',
-    // force a newline. (This guarantees multi‐word strings don't start in mid‐row.)
+    // force a newline. (Keeps multi-word prints aligned.)
     if ((cursor_pos % VGA_WIDTH) != 0 && *s != '\n') {
         cursor_pos = (cursor_pos / VGA_WIDTH + 1) * VGA_WIDTH;
         scroll_if_needed();
@@ -131,11 +121,9 @@ void print(const char *s) {
         char c = *s++;
         if (c == '\n') {
             cursor_pos = (cursor_pos / VGA_WIDTH + 1) * VGA_WIDTH;
-        }
-        else if (c == '\r') {
+        } else if (c == '\r') {
             cursor_pos = (cursor_pos / VGA_WIDTH) * VGA_WIDTH;
-        }
-        else {
+        } else {
             VGA[cursor_pos++] = vga_entry(c, 0x0F);
         }
         scroll_if_needed();
@@ -146,7 +134,6 @@ void print(const char *s) {
  * print_hex(uint32_t value)
  *
  *   Prints exactly eight hex digits (0–9A–F), e.g. 0x0000000F ⇒ "0000000F".
- *   Internally, build a small buffer of length 8 and call print() on it.
  */
 void print_hex(uint32_t value) {
     char buf[9] = {0};
@@ -155,8 +142,29 @@ void print_hex(uint32_t value) {
         buf[i] = hex_digits[value & 0xF];
         value >>= 4;
     }
-    // Now buf is something like "00AB12CD"
     print(buf);
+}
+
+/*
+ * print_dec(uint32_t value)
+ *
+ *   Prints an unsigned 32-bit value in decimal.
+ */
+void print_dec(uint32_t value) {
+    char buf[11];  // max "4294967295" + NUL
+    int i = 10;
+    buf[i] = '\0';
+    if (value == 0) {
+        print("0");
+        return;
+    }
+    while (value && i > 0) {
+        uint32_t q = value / 10;
+        uint32_t r = value - q * 10;
+        buf[--i] = (char)('0' + r);
+        value = q;
+    }
+    print(&buf[i]);
 }
 
 /*
@@ -172,8 +180,7 @@ size_t get_cursor_pos(void) {
  * print_char_at(char c, size_t row, size_t col, uint8_t colour)
  *
  *   Write the single ASCII `c` at VGA[row][col] with palette `colour` (0x00–0xFF).
- *   Does NOT change the logical cursor_pos. Use this to draw/erase a spinner or
- *   single‐character updates without disturbing the main print() cursor.
+ *   Does NOT change the logical cursor_pos.
  */
 void print_char_at(char c, size_t row, size_t col, uint8_t colour) {
     if (row < VGA_HEIGHT && col < VGA_WIDTH) {
