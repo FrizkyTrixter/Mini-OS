@@ -1,5 +1,5 @@
 # ============================================================================
-#   MyOS2 Build System (GRUB ISO + QEMU)
+#   Mini-OS Build System (GRUB ISO + QEMU)
 # ============================================================================
 
 # ─── Tools ────────────────────────────────────────────────────────────────────
@@ -18,42 +18,43 @@ ISO_DIR         := iso
 
 # ─── Flags ────────────────────────────────────────────────────────────────────
 CFLAGS          := -std=gnu99 -m32 -ffreestanding -O2 -Wall -Wextra \
-                    -fno-stack-protector -fno-pic -fno-pie \
-                    -I$(INC_DIR) -I$(SRC_DIR)
+                  -fno-stack-protector -fno-pic -fno-pie \
+                  -I$(INC_DIR) -I$(SRC_DIR)
+
 ASFLAGS         := -f elf32
 LDFLAGS         := -m elf_i386 -T linker.ld
 
-# ─── Sources ──────────────────────────────────────────────────────────────────
-# NOTE: Added src/timer.c and src/exceptions.c
+# ─── C Sources ────────────────────────────────────────────────────────────────
 C_SRCS := \
   $(SRC_DIR)/console.c \
-  $(SRC_DIR)/gdt.c     \
-  $(SRC_DIR)/idt.c     \
-  $(SRC_DIR)/kernel.c  \
-  $(SRC_DIR)/paging.c  \
-  $(SRC_DIR)/pmm.c     \
-  $(SRC_DIR)/ports.c   \
-  $(SRC_DIR)/pic.c     \
-  $(SRC_DIR)/heap.c    \
-  $(SRC_DIR)/timer.c   \
-  $(SRC_DIR)/exceptions.c
+  $(SRC_DIR)/gdt.c \
+  $(SRC_DIR)/idt.c \
+  $(SRC_DIR)/kernel.c \
+  $(SRC_DIR)/paging.c \
+  $(SRC_DIR)/pmm.c \
+  $(SRC_DIR)/ports.c \
+  $(SRC_DIR)/pic.c \
+  $(SRC_DIR)/heap.c \
+  $(SRC_DIR)/timer.c \
+  $(SRC_DIR)/exceptions.c \
+  $(SRC_DIR)/scheduler.c
 
-# All .s and .asm in src/ are picked up automatically (e.g., irq_stubs.s, isr_exceptions.s)
+# ─── Assembly Sources ─────────────────────────────────────────────────────────
 ASM_SRCS_S      := $(wildcard $(SRC_DIR)/*.s)
 ASM_SRCS_ASM    := $(wildcard $(SRC_DIR)/*.asm)
 
 # ─── Objects ──────────────────────────────────────────────────────────────────
 OBJS := \
-  $(patsubst $(SRC_DIR)/%.c,   $(BUILD_DIR)/%.o, $(C_SRCS)) \
-  $(patsubst $(SRC_DIR)/%.s,   $(BUILD_DIR)/%.o, $(ASM_SRCS_S)) \
-  $(patsubst $(SRC_DIR)/%.asm, $(BUILD_DIR)/%.o, $(ASM_SRCS_ASM))
+  $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(C_SRCS)) \
+  $(patsubst $(SRC_DIR)/%.s,$(BUILD_DIR)/%.o,$(ASM_SRCS_S)) \
+  $(patsubst $(SRC_DIR)/%.asm,$(BUILD_DIR)/%.o,$(ASM_SRCS_ASM))
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
 KERNEL_ELF      := $(BUILD_DIR)/kernel.elf
 KERNEL_BIN      := $(BUILD_DIR)/kernel.bin
 ISO_IMAGE       := $(BUILD_DIR)/myos.iso
 
-# ─── Top‐level targets ───────────────────────────────────────────────────────
+# ─── Top-level Targets ────────────────────────────────────────────────────────
 .PHONY: all clean run qemu iso
 
 all: $(KERNEL_BIN) $(ISO_IMAGE)
@@ -68,7 +69,7 @@ clean:
 	@echo "🧹 Cleaning build directories…"
 	rm -rf $(BUILD_DIR) $(ISO_DIR)
 
-# ─── Build steps ──────────────────────────────────────────────────────────────
+# ─── Build Rules ──────────────────────────────────────────────────────────────
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -90,12 +91,11 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 	@echo "📦 Creating flat binary $(KERNEL_BIN)…"
 	$(OBJCOPY) -O binary $< $@
 
-# ─── ISO (GRUB) ──────────────────────────────────────────────────────────────
+# ─── ISO Build ────────────────────────────────────────────────────────────────
 $(ISO_IMAGE): $(KERNEL_ELF)
 	@echo "🗄️  Building ISO tree in '$(ISO_DIR)/'…"
 	rm -rf $(ISO_DIR)
 	mkdir -p $(ISO_DIR)/boot/grub
-
 	cp $(KERNEL_ELF) $(ISO_DIR)/boot/kernel.elf
 
 	printf "set timeout=0\n\
